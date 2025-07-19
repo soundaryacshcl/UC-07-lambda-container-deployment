@@ -1,6 +1,7 @@
 variable "name" {
   description = "Name of the Lambda function"
   type        = string
+  default     = "hello-lambda"  // Default value for the Lambda function name
 }
 
 variable "lambda_role_arn" {
