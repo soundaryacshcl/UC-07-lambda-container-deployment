@@ -13,13 +13,14 @@ module "iam" {
 module "lambda" {
   source                = "../../modules/lambda"
   name                  = "hello-lambda"
-  image_uri             = var.image_uri != "" ? var.image_uri : "${module.ecr.repository_uri}:latest"
+  image_uri             = try(var.image_uri, "${module.ecr.repository_uri}:latest")
   lambda_role_arn       = module.iam.lambda_role_arn
   environment           = var.environment
   memory_size           = 128
   timeout               = 10
   environment_variables = {}
 }
+
 
 module "monitoring" {
   source      = "../../modules/monitoring"
