@@ -53,11 +53,10 @@ jobs:
         working-directory: terraform/modules/ecr
         run: terraform init
 
-      # Optional: Import if repo already exists
-      # - name: Terraform Import ECR Repository
-      #   working-directory: terraform/modules/ecr
-      #   run: |
-      #     terraform import aws_ecr_repository.this lambda-hello-world || echo "Already imported or does not exist"
+      - name: Terraform Import ECR Repository
+        working-directory: terraform/modules/ecr
+        run: |
+          terraform import aws_ecr_repository.this lambda-hello-world || echo "Already imported or not found"
 
       - name: Terraform Apply - ECR
         working-directory: terraform/modules/ecr
@@ -137,23 +136,23 @@ jobs:
           terraform_version: 1.12.0
 
       - name: Terraform Init
-        run: terraform init
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        run: terraform init
 
       - name: Terraform Apply
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
           terraform apply -auto-approve \
             -var="aws_region=${{ env.AWS_REGION }}" \
             -var="image_uri=${{ needs.build-and-push.outputs.image_uri }}"
-        working-directory: terraform/envs/${{ github.event.inputs.environment }}
 
       - name: Capture Outputs
         id: tfoutputs
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
           API_URL=$(terraform output -raw api_gateway_url 2>/dev/null || echo "")
           FUNCTION_URL=$(terraform output -raw lambda_function_url 2>/dev/null || echo "")
           LAMBDA_ARN=$(terraform output -raw lambda_function_arn 2>/dev/null || echo "")
-          echo "api_url=$API_URL"       >> $GITHUB_OUTPUT
+          echo "api_url=$API_URL" >> $GITHUB_OUTPUT
           echo "function_url=$FUNCTION_URL" >> $GITHUB_OUTPUT
           echo "lambda_arn=$LAMBDA_ARN" >> $GITHUB_OUTPUT
-        working-directory: terraform/envs/${{ github.event.inputs.environment }}
