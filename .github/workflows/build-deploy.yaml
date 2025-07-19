@@ -53,12 +53,17 @@ jobs:
         working-directory: terraform/modules/ecr
         run: terraform init
 
+      # Optional: Import if repo already exists
+      # - name: Terraform Import ECR Repository
+      #   working-directory: terraform/modules/ecr
+      #   run: |
+      #     terraform import aws_ecr_repository.this lambda-hello-world || echo "Already imported or does not exist"
+
       - name: Terraform Apply - ECR
         working-directory: terraform/modules/ecr
         run: |
-            terraform apply -auto-approve \
+          terraform apply -auto-approve \
             -var="environment=${{ github.event.inputs.environment }}" \
-            -var="project_name=hello-world-lambda" \
             -var="region=${{ env.AWS_REGION }}"
 
       - name: Get ECR Repository URI
