@@ -14,3 +14,11 @@ variable "aws_region" {
   type        = string
   default     = "ap-south-1"
 }
+
+variable "image_uri" {
+  description = "Override Lambda container image URI"
+  type        = string
+  default     = ""
+}
+
+
