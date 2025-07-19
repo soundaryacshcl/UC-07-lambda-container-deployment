@@ -103,7 +103,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }} ./src
+          docker build -t ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }} ./app
           docker push ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
 
     outputs:
