@@ -10,7 +10,7 @@ on:
         type: choice
         options: [dev, staging, prod]
       project_name:
-        description: 'Name of the ECR repository'
+        description: 'ECR repository name'
         required: true
         default: 'lambda-hello-world'
         type: string
@@ -35,10 +35,13 @@ permissions:
   pull-requests: write
 
 jobs:
-  terraform-plan-ecr:
+  ecr:
     name: Ensure ECR Repository
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    outputs:
+      ecr_uri: ${{ steps.ecr_uri.outputs.ecr_uri }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,38 +57,40 @@ jobs:
         with:
           terraform_version: 1.6.6
 
-      - name: Terraform Init (ECR)
+      - name: Terraform Init
         working-directory: terraform/modules/ecr
         run: terraform init
 
-      - name: Import ECR if exists
+      - name: Terraform Import ECR (if exists)
         working-directory: terraform/modules/ecr
         run: |
           aws ecr describe-repositories --repository-names ${{ github.event.inputs.project_name }} \
-          && terraform import aws_ecr_repository.this ${{ github.event.inputs.project_name }} || echo "ECR does not exist or already imported"
+          && terraform import aws_ecr_repository.this ${{ github.event.inputs.project_name }} || echo "ECR not found, skipping import"
 
       - name: Terraform Apply (ECR)
         working-directory: terraform/modules/ecr
-        run: terraform apply -auto-approve \
-          -var="project_name=${{ github.event.inputs.project_name }}" \
-          -var="environment=${{ github.event.inputs.environment }}" \
-          -var="region=${{ env.AWS_REGION }}"
+        run: |
+          terraform apply -auto-approve \
+            -var="project_name=${{ github.event.inputs.project_name }}" \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -var="region=${{ env.AWS_REGION }}"
 
-      - name: Extract ECR URL
-        id: ecr-uri
+      - name: Output ECR URI
+        id: ecr_uri
         working-directory: terraform/modules/ecr
         run: |
-          URI=$(terraform output -raw repository_uri)
-          echo "ecr_uri=$URI" >> $GITHUB_OUTPUT
+          ECR_URI=$(terraform output -raw repository_uri)
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
 
-    outputs:
-      ecr_uri: ${{ steps.ecr-uri.outputs.ecr_uri }}
-
-  docker-build-push:
+  build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: terraform-plan-ecr
+    needs: [ecr]
     if: github.event.inputs.skip_build != 'true'
+    outputs:
+      image_uri: ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.gen_tag.outputs.image_tag }}
+      image_tag: ${{ steps.gen_tag.outputs.image_tag }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -99,30 +104,27 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Generate image tag
-        id: generate-tag
+      - name: Generate Tag
+        id: gen_tag
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            TAG=${{ github.event.inputs.image_tag }}
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
           else
             TAG="v1-${{ github.run_number }}"
+            echo "image_tag=$TAG" >> $GITHUB_OUTPUT
           fi
-          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Build and push image
+      - name: Build and Push Image
         run: |
-          docker build -t ${{ needs.terraform-plan-ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }} terraform/app
-          docker push ${{ needs.terraform-plan-ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
+          docker build -t ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.gen_tag.outputs.image_tag }} terraform/app
+          docker push ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.gen_tag.outputs.image_tag }}
 
-    outputs:
-      image_uri: ${{ needs.terraform-plan-ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
-      image_tag: ${{ steps.generate-tag.outputs.image_tag }}
-
-  deploy-infrastructure:
+  deploy:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    needs: docker-build-push
+    needs: [build, ecr]
     environment: ${{ github.event.inputs.environment }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -138,14 +140,21 @@ jobs:
         with:
           terraform_version: 1.6.6
 
-      - name: Terraform Init (env)
+      - name: Terraform Init (Root)
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: terraform init
 
-      - name: Terraform Apply (env)
+      - name: Terraform Import IAM Role (if exists)
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
-        run: terraform apply -auto-approve \
-          -var="aws_region=${{ env.AWS_REGION }}" \
-          -var="environment=${{ github.event.inputs.environment }}" \
-          -var="project_name=${{ github.event.inputs.project_name }}" \
-          -var="image_uri=${{ needs.docker-build-push.outputs.image_uri }}"
+        run: |
+          aws iam get-role --role-name lambda_exec_role-${{ github.event.inputs.environment }} \
+          && terraform import module.iam.aws_iam_role.lambda_exec_role lambda_exec_role-${{ github.event.inputs.environment }} || echo "IAM role not found, skipping import"
+
+      - name: Terraform Apply (Infra)
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        run: |
+          terraform apply -auto-approve \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="project_name=${{ github.event.inputs.project_name }}" \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -var="image_uri=${{ needs.build.outputs.image_uri }}"
