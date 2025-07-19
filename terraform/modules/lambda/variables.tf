@@ -1,36 +1,37 @@
 variable "name" {
   description = "Name of the Lambda function"
   type        = string
-  default     = "hello-lambda"  // Default value for the Lambda function name
 }
 
 variable "lambda_role_arn" {
-  description = "ARN of the IAM role for the Lambda function"
+  description = "IAM Role ARN for the Lambda"
   type        = string
 }
 
 variable "image_uri" {
-  description = "Image URI for the Lambda container"
+  description = "ECR Image URI"
   type        = string
 }
 
 variable "memory_size" {
-  description = "Memory size for the Lambda function"
+  description = "Lambda memory size"
   type        = number
+  default     = 128
 }
 
 variable "timeout" {
-  description = "Timeout for the Lambda function"
+  description = "Lambda execution timeout in seconds"
   type        = number
+  default     = 10
 }
 
 variable "environment_variables" {
-  description = "Environment variables for the Lambda function"
+  description = "Environment variables for Lambda"
   type        = map(string)
   default     = {}
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod)"
+  description = "Deployment environment"
   type        = string
 }

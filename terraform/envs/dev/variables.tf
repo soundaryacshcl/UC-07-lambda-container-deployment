@@ -4,21 +4,7 @@ variable "environment" {
   default     = "dev"
 }
 
-variable "project_name" {
-  description = "Name of the ECR repository"
-  type        = string
-}
-
-variable "aws_region" {
-  description = "AWS region to deploy resources in"
-  type        = string
-  default     = "ap-south-1"
-}
-
 variable "image_uri" {
-  description = "Override Lambda container image URI"
+  description = "Docker image URI for Lambda"
   type        = string
-  default     = ""
 }
-
-

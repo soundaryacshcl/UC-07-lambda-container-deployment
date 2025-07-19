@@ -1,14 +1,11 @@
 resource "aws_lambda_function" "this" {
   function_name = var.name
-  role          = var.lambda_role_arn
   package_type  = "Image"
-  image_uri     = var.image_uri   // Expecting a dynamic value (e.g. module.ecr.repository_url with :latest appended)
-  memory_size   = var.memory_size
-  timeout       = var.timeout
+  image_uri     = var.image_uri
+  role          = var.lambda_role_arn
 
-  tracing_config {
-    mode = "Active"
-  }
+  memory_size = var.memory_size
+  timeout     = var.timeout
 
   environment {
     variables = var.environment_variables
@@ -16,5 +13,6 @@ resource "aws_lambda_function" "this" {
 
   tags = {
     Environment = var.environment
+    Name        = var.name
   }
 }

@@ -28,6 +28,7 @@ on:
 env:
   AWS_REGION: ap-south-1
   AWS_ROLE_ARN: 'arn:aws:iam::436450225331:role/oidc-assume-role'
+  AWS_DEFAULT_REGION: ap-south-1
 
 permissions:
   id-token: write
@@ -73,7 +74,7 @@ jobs:
           terraform apply -auto-approve \
             -var="project_name=${{ github.event.inputs.project_name }}" \
             -var="environment=${{ github.event.inputs.environment }}" \
-            -var="region=${{ env.AWS_REGION }}"
+            -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Output ECR URI
         id: ecr_uri
@@ -158,3 +159,9 @@ jobs:
             -var="project_name=${{ github.event.inputs.project_name }}" \
             -var="environment=${{ github.event.inputs.environment }}" \
             -var="image_uri=${{ needs.build.outputs.image_uri }}"
+
+      - name: Output API and Lambda Info
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        run: |
+          echo "API: $(terraform output -raw api_endpoint 2>/dev/null || echo NotFound)"
+          echo "Lambda: $(terraform output -raw lambda_function_name 2>/dev/null || echo NotFound)"

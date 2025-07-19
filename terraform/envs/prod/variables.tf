@@ -4,9 +4,7 @@ variable "environment" {
   default     = "prod"
 }
 
-variable "project_name" {
-  description = "Name of the ECR repository"
+variable "image_uri" {
+  description = "Docker image URI for Lambda"
   type        = string
-  default     = "lambda-hello-world"  // Default value for the ECR repository name
-
 }

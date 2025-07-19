@@ -1,9 +1,15 @@
 variable "name" {
-  description = "Name prefix for the API Gateway HTTP API"
+  description = "Name of the API Gateway"
   type        = string
 }
 
-variable "lambda_arn" {
-  description = "ARN of the Lambda function to integrate with API Gateway"
+variable "lambda_function_name" {
+  description = "Name of the Lambda function"
   type        = string
+}
+
+variable "environment" {
+  description = "Environment (dev/staging/prod)"
+  type        = string
+  default     = "dev"
 }

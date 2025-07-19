@@ -1,24 +1,26 @@
-resource "aws_apigatewayv2_api" "http_api" {
-  name          = "${var.name}-http-api"
+resource "aws_apigatewayv2_api" "this" {
+  name          = var.name
   protocol_type = "HTTP"
+  target        = aws_lambda_function_url.this.function_url
+
+  tags = {
+    Environment = var.environment
+  }
 }
 
-resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id                 = aws_apigatewayv2_api.http_api.id
-  integration_type       = "AWS_PROXY"
-  integration_uri        = var.lambda_arn
-  integration_method     = "POST"
-  payload_format_version = "2.0"
+resource "aws_lambda_function_url" "this" {
+  function_name      = var.lambda_function_name
+  authorization_type = "NONE"
 }
 
-resource "aws_apigatewayv2_route" "default_route" {
-  api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "GET /"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+resource "aws_lambda_permission" "apigw" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunctionUrl"
+  function_name = var.lambda_function_name
+  principal     = "apigateway.amazonaws.com"
 }
 
-resource "aws_apigatewayv2_stage" "default_stage" {
-  api_id      = aws_apigatewayv2_api.http_api.id
-  name        = "$default"
-  auto_deploy = true
+output "api_endpoint" {
+  description = "API Gateway endpoint"
+  value       = aws_apigatewayv2_api.this.api_endpoint
 }
