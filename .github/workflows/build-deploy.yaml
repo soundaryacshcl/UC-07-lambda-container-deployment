@@ -77,10 +77,11 @@ jobs:
         run: |
           terraform state list | grep aws_ecr_repository.this && echo "imported=true" >> $GITHUB_OUTPUT || echo "imported=false" >> $GITHUB_OUTPUT
 
-      - name: Import ECR Repository (if not imported)
-        if: steps.tf_state_check.outputs.imported == 'false'
+      
+      - name: Terraform Import ECR Repo
+        if: steps.tf_state_check.outputs.imported == 'false' && steps.check-ecr.outputs.exists == 'true'
         working-directory: terraform/modules/ecr
-        run: terraform import aws_ecr_repository.this lambda-hello-world || echo "skip"
+        run: terraform import aws_ecr_repository.this lambda-hello-world || true
 
       - name: Terraform Apply - Create ECR Repo
         if: steps.check-ecr.outputs.exists == 'false'
