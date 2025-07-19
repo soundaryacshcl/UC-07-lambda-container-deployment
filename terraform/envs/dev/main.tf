@@ -1,15 +1,18 @@
 module "lambda" {
-  source       = "../../../modules/lambda"
+  source       = "../../modules/lambda"
   environment  = var.environment
-  project_name = var.project_name            # ✅ Required
-  image_uri    = var.image_uri               # ✅ Required
-  lambda_role_arn = module.iam.lambda_exec_role_arn  # or pass as var.lambda_role_arn if not using module
+  project_name = var.project_name
+  name         = var.project_name                  # ✅ Add this line
+  image_uri    = var.image_uri
+  lambda_role_arn = module.iam.lambda_exec_role_arn
   memory_size     = 512
   timeout         = 10
   environment_variables = {
     LOG_LEVEL = "info"
   }
 }
+
+
 
 
 
