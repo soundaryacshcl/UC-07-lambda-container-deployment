@@ -1,58 +1,152 @@
-name: Build, Push Docker & Deploy Lambda
+name: App & Infra Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, staging, prod]
+      image_tag:
+        description: 'Docker image tag (leave empty for auto-generated)'
+        required: false
+        default: ''
+        type: string
+      skip_build:
+        description: 'Skip Docker build (use existing image)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
-  build-deploy:
+  ecr:
+    name: Ensure ECR Repository
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::590183969845:role/github-assume-role
-          role-session-name: github-actions-session
-          aws-region: us-east-1
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.0
+
+      - name: Terraform Init - ECR Module
+        working-directory: terraform/modules/ecr
+        run: terraform init
+
+      - name: Terraform Apply - ECR
+        working-directory: terraform/modules/ecr
+        run: |
+          terraform apply -auto-approve \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -var="project_name=hello-world-lambda"
 
       - name: Get ECR Repository URI
-        id: ecr_repo
+        id: ecr-uri
+        working-directory: terraform/modules/ecr
         run: |
-          REPO_URI=$(aws ecr describe-repositories --repository-names lambda-hello-world --region us-east-1 --query "repositories[0].repositoryUri" --output text)
-          echo "ECR_REPO_URI=$REPO_URI" >> $GITHUB_ENV
+          ECR_URI=$(terraform output -raw repository_uri)
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
+          echo "ECR Repository URI: $ECR_URI"
+    outputs:
+      ecr_uri: ${{ steps.ecr-uri.outputs.ecr_uri }}
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [ecr]
+    environment: ${{ github.event.inputs.environment }}
+    if: github.event.inputs.skip_build != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate unique image tag
+        id: generate-tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            SHORT_SHA=${GITHUB_SHA:0:7}
+            IMAGE_TAG="v1.12.0-${TIMESTAMP}-${SHORT_SHA}"
+          fi
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
         run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ env.ECR_REPO_URI }}
+          docker build -t ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }} ./src
+          docker push ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
 
-      - name: Build Docker Image
-        run: docker build -t lambda-hello-world ./terraform/app
+    outputs:
+      image_uri: ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
+      image_tag: ${{ steps.generate-tag.outputs.image_tag }}
 
-      - name: Tag Docker Image
-        run: docker tag lambda-hello-world:latest ${{ env.ECR_REPO_URI }}:latest
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Push Docker Image to ECR
-        run: docker push ${{ env.ECR_REPO_URI }}:latest
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Create or Update Lambda Function
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.0
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+
+      - name: Terraform Apply
         run: |
-          aws lambda get-function --function-name hello-lambda --region us-east-1 || \
-          aws lambda create-function \
-            --function-name hello-lambda \
-            --package-type Image \
-            --code ImageUri=${{ env.ECR_REPO_URI }}:latest \
-            --role arn:aws:iam::590183969845:role/<your-lambda-execution-role> \
-            --timeout 10 \
-            --memory-size 128 \
-            --region us-east-1
+          terraform apply -auto-approve \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="image_uri=${{ needs.build-and-push.outputs.image_uri }}"
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
 
-          aws lambda update-function-code \
-            --function-name hello-lambda \
-            --image-uri "${{ env.ECR_REPO_URI }}:latest" \
-            --region us-east-1
+      - name: Capture Outputs
+        id: tfoutputs
+        run: |
+          API_URL=$(terraform output -raw api_gateway_url 2>/dev/null || echo "")
+          FUNCTION_URL=$(terraform output -raw lambda_function_url 2>/dev/null || echo "")
+          LAMBDA_ARN=$(terraform output -raw lambda_function_arn 2>/dev/null || echo "")
+          echo "api_url=$API_URL"       >> $GITHUB_OUTPUT
+          echo "function_url=$FUNCTION_URL" >> $GITHUB_OUTPUT
+          echo "lambda_arn=$LAMBDA_ARN" >> $GITHUB_OUTPUT
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
