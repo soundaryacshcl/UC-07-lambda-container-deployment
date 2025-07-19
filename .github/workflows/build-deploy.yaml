@@ -69,12 +69,12 @@ jobs:
 
       - name: Terraform Init - ECR Module
         if: steps.check-ecr.outputs.exists == 'false'
-        working-directory: UC-07-lambda-container-deployment/terraform/modules/ecr
+        working-directory: terraform/modules/ecr
         run: terraform init
 
       - name: Terraform Apply - Create ECR Repo
         if: steps.check-ecr.outputs.exists == 'false'
-        working-directory: UC-07-lambda-container-deployment/terraform/modules/ecr
+        working-directory: terraform/modules/ecr
         run: |
           terraform apply -auto-approve \
             -var="project_name=${{ steps.repo-name.outputs.repo_name }}" \
