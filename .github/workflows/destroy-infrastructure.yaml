@@ -1,23 +1,14 @@
-name: Terraform Apply & Destroy
+name: Destroy Infrastructure
 
 on:
   workflow_dispatch:
-    inputs:
-      action:
-        description: 'Terraform action to perform'
-        required: true
-        default: 'apply'
-        type: choice
-        options:
-          - apply
-          - destroy
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  terraform:
+  destroy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -39,11 +30,6 @@ jobs:
         run: terraform init
         working-directory: ./terraform/envs/dev
 
-      - name: Terraform Apply or Destroy
-        run: |
-          if [ "${{ github.event.inputs.action }}" == "apply" ]; then
-            terraform apply -auto-approve
-          else
-            terraform destroy -auto-approve
-          fi
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
         working-directory: ./terraform/envs/dev
