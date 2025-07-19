@@ -1,10 +1,10 @@
-name: Docker Build and Push to ECR 
+name: Build, Push Docker Image, and Update Lambda
 
 on:
   push:
     paths:
-      - 'terraform/app/**'  # Adjust this path to where your Dockerfile is located.
-      - '.github/workflows/docker-build-push.yml'
+      - 'terraform/app/**'
+      - '.github/workflows/docker-build-push-update-lambda.yml'
     branches:
       - main
 
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  docker:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -52,3 +52,9 @@ jobs:
 
       - name: Push Docker Image to ECR
         run: docker push ${{ env.ECR_REPO_URI }}:latest
+
+      - name: Update Lambda Function Code
+        run: |
+          aws lambda update-function-code \
+            --function-name hello-lambda \
+            --image-uri "${{ env.ECR_REPO_URI }}:latest"
