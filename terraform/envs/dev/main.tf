@@ -1,6 +1,6 @@
 module "ecr" {
   source      = "../../modules/ecr"
-  name        = var.name
+  project_name = var.project_name
   environment = var.environment
   region      = "us-east-1"
 }
