@@ -14,12 +14,16 @@ resource "aws_iam_role" "lambda_exec_role" {
     ]
   })
 
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes  = [] # you can add fields here if needed
+  }
+
   tags = {
     Environment = var.environment
-    Name        = "lambda_exec_role-${var.environment}" # optional but helpful
+    Name        = "lambda_exec_role-${var.environment}"
   }
 }
-
 resource "aws_iam_role_policy" "lambda_ecr_policy" {
   name = "lambda-ecr-access-${var.environment}"
   role = aws_iam_role.lambda_exec_role.id

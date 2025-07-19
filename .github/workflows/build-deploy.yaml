@@ -109,29 +109,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
-        run: terraform init 
-
-      - name: Terraform Import IAM Role (if exists)
-        working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
-        run: |
-          set -e
-          ROLE_NAME=lambda_exec_role-${{ github.event.inputs.environment }}
-    
-          if aws iam get-role --role-name "$ROLE_NAME"; then
-          echo "IAM Role $ROLE_NAME exists. Importing..."
-          terraform import module.iam.aws_iam_role.lambda_exec_role "$ROLE_NAME"
-          else
-          echo "IAM Role $ROLE_NAME not found. Skipping import."
-          fi
-
-
-      - name: Terraform Import ECR (if exists)
-        working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
-        run: |
-          aws ecr describe-repositories --repository-names ${{ github.event.inputs.project_name }} \
-          && terraform import module.ecr.aws_ecr_repository.this ${{ github.event.inputs.project_name }} \
-          || echo "ECR repo not found, skipping import"
-
+        run: terraform init
 
       - name: Terraform Apply
         working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
