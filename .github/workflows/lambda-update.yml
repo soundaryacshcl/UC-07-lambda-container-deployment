@@ -1,4 +1,4 @@
-name: Update Lambda Function
+name: Update Lambda Function 
 
 on:
   push:
