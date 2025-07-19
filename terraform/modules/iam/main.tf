@@ -2,38 +2,40 @@ resource "aws_iam_role" "lambda_exec_role" {
   name = "lambda_exec_role-${var.environment}"
 
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version   = "2012-10-17",
     Statement = [
       {
-        Effect    = "Allow"
+        Effect    = "Allow",
         Principal = {
           Service = "lambda.amazonaws.com"
-        }
-        Action    = "sts:AssumeRole"
+        },
+        Action = "sts:AssumeRole"
       }
     ]
   })
 
   tags = {
     Environment = var.environment
+    Name        = "lambda_exec_role-${var.environment}" # optional but helpful
   }
 }
 
 resource "aws_iam_role_policy" "lambda_ecr_policy" {
-  name = "lambda-ecr-access"
+  name = "lambda-ecr-access-${var.environment}"
   role = aws_iam_role.lambda_exec_role.id
+
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version   = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow",
+        Action = [
           "ecr:GetAuthorizationToken",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchGetImage",
           "ecr:DescribeImages"
-        ]
+        ],
         Resource = "*"
       }
     ]
