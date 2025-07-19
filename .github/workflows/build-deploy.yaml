@@ -111,6 +111,12 @@ jobs:
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: terraform init
 
+      - name: Terraform Import IAM Role (if exists)
+        run: |
+          aws iam get-role --role-name lambda_exec_role-${{ github.event.inputs.environment }} \
+          && terraform import module.iam.aws_iam_role.lambda_exec_role lambda_exec_role-${{ github.event.inputs.environment }} \
+          || echo "IAM role not found, skipping import"
+
       - name: Terraform Apply
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
