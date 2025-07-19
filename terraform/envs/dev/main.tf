@@ -2,7 +2,7 @@ module "ecr" {
   source      = "../../modules/ecr"
   project_name = var.project_name
   environment = var.environment
-  region      = "var.region"
+  region      = var.aws_region
 }
 
 module "iam" {

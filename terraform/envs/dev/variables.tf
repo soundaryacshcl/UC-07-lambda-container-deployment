@@ -9,7 +9,7 @@ variable "project_name" {
   type        = string
 }
 
-variable "region" {
+variable "aws_region" {
   description = "AWS region to deploy resources in"
   type        = string
   default     = "ap-south-1"
