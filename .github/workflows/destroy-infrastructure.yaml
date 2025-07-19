@@ -23,7 +23,7 @@ on:
 
 env:
   AWS_REGION: ap-south-1
-  AWS_ROLE_ARN: 'arn:aws:iam::654654155215:role/oidc-assume-role'
+  AWS_ROLE_ARN: 'arn:aws:iam::436450225331:role/oidc-assume-role'
 
 permissions:
   id-token: write
