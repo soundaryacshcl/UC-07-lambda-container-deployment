@@ -1,6 +1,6 @@
 module "ecr" {
   source      = "../../modules/ecr"
-  name        = "lambda-hello-world"
+  name        = var.name
   environment = var.environment
   region      = "us-east-1"
 }
