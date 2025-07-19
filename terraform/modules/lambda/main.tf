@@ -1,5 +1,5 @@
 resource "aws_lambda_function" "this" {
-  function_name = var.name
+  function_name = "${var.project_name}-${var.environment}"
   package_type  = "Image"
   image_uri     = var.image_uri
   role          = var.lambda_role_arn
@@ -13,6 +13,6 @@ resource "aws_lambda_function" "this" {
 
   tags = {
     Environment = var.environment
-    Name        = var.name
+    Name        = "${var.project_name}-${var.environment}"
   }
 }
