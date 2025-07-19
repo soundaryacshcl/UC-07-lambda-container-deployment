@@ -22,7 +22,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  AWS_ROLE_ARN: 'arn:aws:iam::654654155215:role/oidc-assume-role'           
+  AWS_ROLE_ARN: 'arn:aws:iam::654654155215:role/oidc-assume-role'         
 
 permissions:
   id-token: write
@@ -64,9 +64,9 @@ jobs:
         id: ecr-uri
         working-directory: terraform/modules/ecr
         run: |
-          ECR_URI=$(terraform output -raw repository_url)
+          ECR_URI=$(terraform output -raw repository_uri)
           echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
-          echo "ECR Repository URL: $ECR_URI"
+          echo "ECR Repository URI: $ECR_URI"
     outputs:
       ecr_uri: ${{ steps.ecr-uri.outputs.ecr_uri }}
 
