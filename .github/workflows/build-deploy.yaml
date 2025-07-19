@@ -117,6 +117,14 @@ jobs:
           && terraform import module.iam.aws_iam_role.lambda_exec_role lambda_exec_role-${{ github.event.inputs.environment }} \
           || echo "IAM role not found, skipping import"
 
+      - name: Terraform Import ECR (if exists)
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        run: |
+          aws ecr describe-repositories --repository-names ${{ github.event.inputs.project_name }} \
+          && terraform import module.ecr.aws_ecr_repository.this ${{ github.event.inputs.project_name }} \
+          || echo "ECR repo not found, skipping import"
+
+
       - name: Terraform Apply
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
