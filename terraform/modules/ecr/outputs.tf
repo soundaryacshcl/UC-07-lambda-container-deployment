@@ -1,4 +1,4 @@
 output "repository_url" {
   description = "URL of the created ECR repository"
-  value       = aws_ecr_repository.this.repository_url
+  value       = aws_ecr_repository.this[0].repository_url
 }
