@@ -36,6 +36,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     outputs:
       ecr_uri: ${{ steps.set-ecr-uri.outputs.ecr_uri }}
+      project_name: ${{ steps.set-repo.outputs.repo_name }}
 
     steps:
       - name: Checkout code
@@ -48,13 +49,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Set repo name
-        id: repo-name
+        id: set-repo
         run: echo "repo_name=lambda-hello-world" >> $GITHUB_OUTPUT
 
       - name: Check if ECR repo exists
         id: check-ecr
         run: |
-          EXISTS=$(aws ecr describe-repositories --repository-names "${{ steps.repo-name.outputs.repo_name }}" --region $AWS_REGION 2>/dev/null || echo "not-found")
+          EXISTS=$(aws ecr describe-repositories --repository-names "${{ steps.set-repo.outputs.repo_name }}" --region $AWS_REGION 2>/dev/null || echo "not-found")
           if echo "$EXISTS" | grep -q '"repositoryArn"'; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
@@ -62,22 +63,25 @@ jobs:
           fi
 
       - name: Setup Terraform
-        if: steps.check-ecr.outputs.exists == 'false'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.12.0
 
-      - name: Terraform Init - ECR Module
-        if: steps.check-ecr.outputs.exists == 'false'
+      - name: Terraform Init
         working-directory: terraform/modules/ecr
         run: terraform init
+
+      - name: Terraform Import ECR Repo
+        if: steps.check-ecr.outputs.exists == 'true'
+        working-directory: terraform/modules/ecr
+        run: terraform import aws_ecr_repository.this ${{ steps.set-repo.outputs.repo_name }} || true
 
       - name: Terraform Apply - Create ECR Repo
         if: steps.check-ecr.outputs.exists == 'false'
         working-directory: terraform/modules/ecr
         run: |
           terraform apply -auto-approve \
-            -var="project_name=${{ steps.repo-name.outputs.repo_name }}" \
+            -var="project_name=${{ steps.set-repo.outputs.repo_name }}" \
             -var="environment=${{ github.event.inputs.environment }}" \
             -var="region=${{ env.AWS_REGION }}"
 
@@ -85,7 +89,7 @@ jobs:
         id: set-ecr-uri
         run: |
           ECR_URI=$(aws ecr describe-repositories \
-            --repository-names "${{ steps.repo-name.outputs.repo_name }}" \
+            --repository-names "${{ steps.set-repo.outputs.repo_name }}" \
             --region $AWS_REGION \
             --query 'repositories[0].repositoryUri' --output text)
           echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
@@ -96,21 +100,22 @@ jobs:
     needs: [ecr]
     environment: ${{ github.event.inputs.environment }}
     if: github.event.inputs.skip_build != 'true'
+    outputs:
+      image_uri: ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
+      image_tag: ${{ steps.generate-tag.outputs.image_tag }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate unique image tag
+      - name: Generate image tag
         id: generate-tag
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
           else
-            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-            SHORT_SHA=${GITHUB_SHA:0:7}
-            IMAGE_TAG="v1.12.0-${TIMESTAMP}-${SHORT_SHA}"
+            echo "image_tag=v1.12.0-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
           fi
-          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -121,20 +126,17 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push Docker image
+      - name: Build and Push Docker Image
         run: |
           docker build -t ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }} terraform/app
           docker push ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
 
-    outputs:
-      image_uri: ${{ needs.ecr.outputs.ecr_uri }}:${{ steps.generate-tag.outputs.image_tag }}
-      image_tag: ${{ steps.generate-tag.outputs.image_tag }}
-
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    needs: [build-and-push]
+    needs: [build-and-push, ecr]
     environment: ${{ github.event.inputs.environment }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -159,10 +161,9 @@ jobs:
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
           terraform apply -auto-approve -input=false -no-color -parallelism=1 -lock=false \
-          -var="aws_region=${{ env.AWS_REGION }}" \
-          -var="image_uri=${{ needs.build-and-push.outputs.image_uri }}" \
-          -var="project_name=lambda-hello-world"
-
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="image_uri=${{ needs.build-and-push.outputs.image_uri }}" \
+            -var="project_name=${{ needs.ecr.outputs.project_name }}"
 
       - name: Capture Outputs
         id: tfoutputs
