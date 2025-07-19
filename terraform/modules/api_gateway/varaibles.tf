@@ -1,15 +1,4 @@
-variable "name" {
-  description = "Name of the API Gateway"
-  type        = string
-}
-
-variable "lambda_function_name" {
-  description = "Name of the Lambda function"
-  type        = string
-}
-
-variable "environment" {
-  description = "Environment (dev/staging/prod)"
-  type        = string
-  default     = "dev"
+output "api_endpoint" {
+  description = "Invoke URL for the deployed API"
+  value       = aws_apigatewayv2_stage.example.invoke_url
 }
