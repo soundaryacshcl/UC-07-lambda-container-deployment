@@ -1,4 +1,4 @@
-name: Build, Push Docker Image, and Update Lambda
+name: Build, Push Docker Image, and Update Lambda 
 
 on:
   push:
