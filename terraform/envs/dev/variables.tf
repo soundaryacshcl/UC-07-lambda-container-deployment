@@ -7,3 +7,7 @@ variable "project_name" {
   description = "Name of the ECR repository"
   type        = string
 }
+variable "region" {
+type     = "string"
+default  = "ap-south-1"
+}
