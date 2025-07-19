@@ -56,9 +56,10 @@ jobs:
       - name: Terraform Apply - ECR
         working-directory: terraform/modules/ecr
         run: |
-          terraform apply -auto-approve \
+            terraform apply -auto-approve \
             -var="environment=${{ github.event.inputs.environment }}" \
-            -var="project_name=hello-world-lambda"
+            -var="project_name=hello-world-lambda" \
+            -var="region=${{ env.AWS_REGION }}"
 
       - name: Get ECR Repository URI
         id: ecr-uri
