@@ -1,53 +1,51 @@
-name: App & Infra Deploy
+name: Build and Deploy Lambda with API Gateway
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: "Deployment environment"
         required: true
-        default: 'dev'
+        default: "dev"
         type: choice
         options: [dev, staging, prod]
       project_name:
-        description: 'ECR repository name'
+        description: "ECR repository name"
         required: true
-        default: 'lambda-hello-world'
+        default: "lambda-hello-world"
         type: string
       image_tag:
-        description: 'Docker image tag (leave empty for auto-generated)'
+        description: "Custom image tag (optional)"
         required: false
-        default: ''
+        default: ""
         type: string
       skip_build:
-        description: 'Skip Docker build'
+        description: "Skip Docker image build"
         required: false
         default: false
         type: boolean
 
 env:
   AWS_REGION: ap-south-1
-  AWS_ROLE_ARN: 'arn:aws:iam::436450225331:role/oidc-assume-role'
+  AWS_ROLE_ARN: arn:aws:iam::436450225331:role/oidc-assume-role
+  AWS_ACCOUNT_ID: 436450225331
 
 permissions:
   id-token: write
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   build:
-    name: Build and Push Docker Image
+    name: Create ECR Repo & Build Image
     runs-on: ubuntu-latest
-    if: github.event.inputs.skip_build != 'true'
     outputs:
-      image_uri: ${{ steps.full_uri.outputs.image_uri }}
-      image_tag: ${{ steps.gen_tag.outputs.image_tag }}
+      image_uri: ${{ steps.set.outputs.image_uri }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
@@ -56,44 +54,40 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Create ECR repo if not exists
+      - name: Create ECR Repo (if not exists)
         run: |
           aws ecr describe-repositories --repository-names ${{ github.event.inputs.project_name }} || \
           aws ecr create-repository --repository-name ${{ github.event.inputs.project_name }}
 
       - name: Generate Image Tag
-        id: gen_tag
+        id: tag
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
           else
-            echo "image_tag=v1-${{ github.run_number }}" >> $GITHUB_OUTPUT
+            echo "tag=v1-${{ github.run_number }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and Push Docker Image
+      - name: Build & Push Docker Image
+        if: github.event.inputs.skip_build != 'true'
+        id: set
         run: |
-          docker build -t ${{ github.event.inputs.project_name }}:${{ steps.gen_tag.outputs.image_tag }} terraform/app
-          docker tag ${{ github.event.inputs.project_name }}:${{ steps.gen_tag.outputs.image_tag }} \
-            "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.inputs.project_name }}:${{ steps.gen_tag.outputs.image_tag }}"
-          docker push "${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.inputs.project_name }}:${{ steps.gen_tag.outputs.image_tag }}"
-
-      - name: Output Full Image URI
-        id: full_uri
-        run: |
-          IMAGE_URI="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.inputs.project_name }}:${{ steps.gen_tag.outputs.image_tag }}"
-          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+          ECR_URI=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ github.event.inputs.project_name }}
+          IMAGE_TAG=${{ steps.tag.outputs.tag }}
+          docker build -t "$ECR_URI:$IMAGE_TAG" terraform/app
+          docker push "$ECR_URI:$IMAGE_TAG"
+          echo "image_uri=$ECR_URI:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   deploy:
-    name: Deploy Terraform Infra
+    name: Deploy Infra with Terraform
     runs-on: ubuntu-latest
     needs: build
-    environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
@@ -108,6 +102,12 @@ jobs:
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: terraform init
 
+      - name: Terraform Import IAM Role (if exists)
+        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        run: |
+          aws iam get-role --role-name lambda_exec_role-${{ github.event.inputs.environment }} \
+          && terraform import module.iam.aws_iam_role.lambda_exec_role lambda_exec_role-${{ github.event.inputs.environment }} || echo "IAM role not found, skipping import"
+
       - name: Terraform Apply
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
@@ -117,8 +117,8 @@ jobs:
             -var="environment=${{ github.event.inputs.environment }}" \
             -var="image_uri=${{ needs.build.outputs.image_uri }}"
 
-      - name: Output API and Lambda Info
+      - name: Show Outputs
         working-directory: terraform/envs/${{ github.event.inputs.environment }}
         run: |
-          echo "API: $(terraform output -raw api_endpoint 2>/dev/null || echo NotFound)"
           echo "Lambda: $(terraform output -raw lambda_function_name 2>/dev/null || echo NotFound)"
+          echo "API URL: $(terraform output -raw api_endpoint 2>/dev/null || echo NotFound)"

@@ -17,3 +17,23 @@ module "api_gateway" {
   environment          = var.environment
 }
 
+module "vpc" {
+  source      = "../../../modules/vpc"
+  environment = var.environment
+}
+
+module "iam" {
+  source      = "../../../modules/iam"
+  environment = var.environment
+}
+
+module "ecr" {
+  source       = "../../../modules/ecr"
+  project_name = var.project_name
+}
+
+module "monitoring" {
+  source      = "../../../modules/monitoring"
+  environment = var.environment
+}
+
