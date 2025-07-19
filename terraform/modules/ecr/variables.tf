@@ -12,5 +12,5 @@ variable "environment" {
 variable "region" {
   description = "AWS region for ECR"
   type        = string
-  default     = "us-east-1"
+  default     = "ap-south-1"
 }
