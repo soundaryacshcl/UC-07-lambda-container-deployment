@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "this" {
-  name                 = var.name
+  name                 = "lambda-hello-world"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
