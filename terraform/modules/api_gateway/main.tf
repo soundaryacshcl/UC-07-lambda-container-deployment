@@ -20,7 +20,4 @@ resource "aws_lambda_permission" "apigw" {
   principal     = "apigateway.amazonaws.com"
 }
 
-output "api_endpoint" {
-  description = "API Gateway endpoint"
-  value       = aws_apigatewayv2_api.this.api_endpoint
-}
+
