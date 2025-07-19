@@ -22,7 +22,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  AWS_ROLE_ARN: 'arn:aws:iam::590183969845:role/github-assume-role'           
+  AWS_ROLE_ARN: 'arn:aws:iam::654654155215:role/oidc-assume-role'           
 
 permissions:
   id-token: write
