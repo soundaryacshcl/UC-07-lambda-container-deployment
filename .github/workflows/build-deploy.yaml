@@ -112,13 +112,15 @@ jobs:
         run: terraform init 
 
       - name: Terraform Import IAM Role (if exists)
+        working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
         run: |
           aws iam get-role --role-name lambda_exec_role-${{ github.event.inputs.environment }} \
           && terraform import module.iam.aws_iam_role.lambda_exec_role lambda_exec_role-${{ github.event.inputs.environment }} \
           || echo "IAM role not found, skipping import"
 
+
       - name: Terraform Import ECR (if exists)
-        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
         run: |
           aws ecr describe-repositories --repository-names ${{ github.event.inputs.project_name }} \
           && terraform import module.ecr.aws_ecr_repository.this ${{ github.event.inputs.project_name }} \
@@ -126,7 +128,7 @@ jobs:
 
 
       - name: Terraform Apply
-        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
         run: |
           terraform apply -auto-approve \
             -var="aws_region=${{ env.AWS_REGION }}" \
@@ -135,7 +137,7 @@ jobs:
             -var="image_uri=${{ needs.build.outputs.image_uri }}"
 
       - name: Show Outputs
-        working-directory: terraform/envs/${{ github.event.inputs.environment }}
+        working-directory: ./terraform/envs/${{ github.event.inputs.environment }}
         run: |
           echo "Lambda: $(terraform output -raw lambda_function_name 2>/dev/null || echo NotFound)"
           echo "API URL: $(terraform output -raw api_endpoint 2>/dev/null || echo NotFound)"
