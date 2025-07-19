@@ -34,6 +34,9 @@ jobs:
     name: Ensure ECR Repository
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    outputs:
+      ecr_uri: ${{ steps.set-ecr-uri.outputs.ecr_uri }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,36 +47,48 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Set repo name
+        id: repo-name
+        run: echo "repo_name=lambda-hello-world" >> $GITHUB_OUTPUT
+
+      - name: Check if ECR repo exists
+        id: check-ecr
+        run: |
+          EXISTS=$(aws ecr describe-repositories --repository-names "${{ steps.repo-name.outputs.repo_name }}" --region $AWS_REGION 2>/dev/null || echo "not-found")
+          if echo "$EXISTS" | grep -q '"repositoryArn"'; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Terraform
+        if: steps.check-ecr.outputs.exists == 'false'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.12.0
 
       - name: Terraform Init - ECR Module
-        working-directory: terraform/modules/ecr
+        if: steps.check-ecr.outputs.exists == 'false'
+        working-directory: UC-07-lambda-container-deployment/terraform/modules/ecr
         run: terraform init
 
-      - name: Terraform Import ECR Repository
-        working-directory: terraform/modules/ecr
-        run: |
-          terraform import aws_ecr_repository.this lambda-hello-world || echo "Already imported or not found"
-
-      - name: Terraform Apply - ECR
-        working-directory: terraform/modules/ecr
+      - name: Terraform Apply - Create ECR Repo
+        if: steps.check-ecr.outputs.exists == 'false'
+        working-directory: UC-07-lambda-container-deployment/terraform/modules/ecr
         run: |
           terraform apply -auto-approve \
+            -var="project_name=${{ steps.repo-name.outputs.repo_name }}" \
             -var="environment=${{ github.event.inputs.environment }}" \
             -var="region=${{ env.AWS_REGION }}"
 
-      - name: Get ECR Repository URI
-        id: ecr-uri
-        working-directory: terraform/modules/ecr
+      - name: Set ECR URI output
+        id: set-ecr-uri
         run: |
-          ECR_URI=$(terraform output -raw repository_uri)
+          ECR_URI=$(aws ecr describe-repositories \
+            --repository-names "${{ steps.repo-name.outputs.repo_name }}" \
+            --region $AWS_REGION \
+            --query 'repositories[0].repositoryUri' --output text)
           echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
-          echo "ECR Repository URI: $ECR_URI"
-    outputs:
-      ecr_uri: ${{ steps.ecr-uri.outputs.ecr_uri }}
 
   build-and-push:
     name: Build and Push Docker Image
