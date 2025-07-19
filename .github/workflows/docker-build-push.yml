@@ -1,0 +1,54 @@
+name: Docker Build and Push to ECR
+
+on:
+  push:
+    paths:
+      - 'terraform/app/**'  # Adjust this path to where your Dockerfile is located.
+      - '.github/workflows/docker-build-push.yml'
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::590183969845:role/github-assume-role
+          role-session-name: github-actions-session
+          aws-region: us-east-1
+
+      - name: Ensure ECR Repository Exists
+        run: |
+          aws ecr describe-repositories --repository-names lambda-hello-world --region us-east-1 || \
+          aws ecr create-repository --repository-name lambda-hello-world --region us-east-1
+
+      - name: Get ECR Repository URI
+        id: ecr_repo
+        run: |
+          REPO_URI=$(aws ecr describe-repositories --repository-names lambda-hello-world --region us-east-1 --query "repositories[0].repositoryUri" --output text)
+          echo "ECR_REPO_URI=$REPO_URI" >> $GITHUB_ENV
+          echo "Repository URI: $REPO_URI"
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 \
+          | docker login --username AWS --password-stdin ${{ env.ECR_REPO_URI }}
+
+      - name: Build Docker Image
+        run: docker build -t lambda-hello-world ./terraform/app
+
+      - name: Tag Docker Image
+        run: docker tag lambda-hello-world:latest ${{ env.ECR_REPO_URI }}:latest
+
+      - name: Push Docker Image to ECR
+        run: docker push ${{ env.ECR_REPO_URI }}:latest
