@@ -1,12 +1,15 @@
 module "lambda" {
-  source                = "../../modules/lambda"
-  name                  = "hello-lambda"
-  image_uri             = var.image_uri
-  lambda_role_arn       = module.iam.lambda_role_arn
-  memory_size           = 128
-  timeout               = 10
-  environment_variables = {}
-  environment           = var.environment
+  source       = "../../modules/lambda"
+  environment  = var.environment
+  project_name = var.project_name
+  name         = var.project_name                  # ✅ Add this line
+  image_uri    = var.image_uri
+  lambda_role_arn = module.iam.lambda_exec_role_arn
+  memory_size     = 512
+  timeout         = 10
+  environment_variables = {
+    LOG_LEVEL = "info"
+  }
 }
 
 
@@ -35,10 +38,15 @@ module "monitoring" {
 
 module "vpc" {
   source             = "../../modules/vpc"
-  vpc_cidr           = "10.0.0.0/16"
+
+  create_vpc         = false
+  vpc_id             = "vpc-0a12345678abcdef0"  # Replace with actual VPC ID
+
+  vpc_cidr           = "10.0.0.0/16"            # Optional but keep consistent
   public_subnets     = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets    = ["10.0.3.0/24", "10.0.4.0/24"]
   availability_zones = ["ap-south-1a", "ap-south-1b"]
   environment        = var.environment
 }
+
 

@@ -12,3 +12,9 @@ variable "region" {
   description = "AWS Region"
   type        = string
 }
+
+variable "skip_creation" {
+  description = "Whether to skip ECR repo creation (set to true if already exists)"
+  type        = bool
+  default     = false
+}

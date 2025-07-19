@@ -28,6 +28,8 @@ module "ecr" {
   project_name = var.project_name
   environment = var.environment
   region      = var.aws_region
+  skip_creation = true  # <–– add this if repo already exists
+
 }
 
 module "iam" {
@@ -42,9 +44,14 @@ module "monitoring" {
 
 module "vpc" {
   source             = "../../modules/vpc"
+
+  # Set to true only for the first env (e.g., dev); false for staging/prod
+  create_vpc         = true
+
   vpc_cidr           = "10.0.0.0/16"
   public_subnets     = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets    = ["10.0.3.0/24", "10.0.4.0/24"]
   availability_zones = ["ap-south-1a", "ap-south-1b"]
   environment        = var.environment
 }
+

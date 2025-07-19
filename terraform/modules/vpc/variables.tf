@@ -1,24 +1,36 @@
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
+variable "create_vpc" {
+  type        = bool
+  default     = true
+  description = "Whether to create a new VPC or reuse an existing one"
+}
+
+variable "vpc_id" {
   type        = string
+  default     = ""
+  description = "Existing VPC ID to reuse if create_vpc is false"
+}
+
+variable "vpc_cidr" {
+  type        = string
+  description = "CIDR block for the VPC"
 }
 
 variable "public_subnets" {
-  description = "List of public subnet CIDR blocks"
   type        = list(string)
+  description = "List of CIDR blocks for public subnets"
 }
 
 variable "private_subnets" {
-  description = "List of private subnet CIDR blocks"
   type        = list(string)
+  description = "List of CIDR blocks for private subnets"
 }
 
 variable "availability_zones" {
-  description = "List of availability zones"
   type        = list(string)
+  description = "Availability zones for subnets"
 }
 
 variable "environment" {
-  description = "Deployment environment (dev, staging, prod)"
   type        = string
+  description = "Environment (e.g., dev, staging, prod)"
 }
