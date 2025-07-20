@@ -237,7 +237,7 @@ jobs:
       # --- Apply on main branch ONLY -----------------------------
       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       - name: Terraform Apply
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve tfplan
         working-directory: terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
@@ -245,7 +245,7 @@ jobs:
       # --- Capture outputs (after apply) -------------------------
       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       - name: Capture Outputs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         id: tfoutputs
         run: |
           API_URL=$(terraform output -raw api_gateway_url 2>/dev/null || echo "")
