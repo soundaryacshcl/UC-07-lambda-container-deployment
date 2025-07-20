@@ -1,0 +1,80 @@
+name: ECR Repository Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+        - prod
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/modules/ecr/**'
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ROLE_ARN: arn:aws:iam::436450225331:role/oidc-assume-role 
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  create-ecr-repository:
+    name: Create ECR Repository
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.0
+          terraform_wrapper: false
+
+      - name: Terraform Init - ECR Module
+        working-directory: terraform/modules/ecr
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: terraform/modules/ecr
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform/modules/ecr
+        run: |
+          terraform plan \
+            -var="environment=${{ github.event.inputs.environment || 'dev' }}" \
+            -var="project_name=hello-world-lambda" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: terraform/modules/ecr
+        run: terraform apply tfplan
+
+      - name: Get ECR Repository URI
+        id: ecr-uri
+        working-directory: terraform/modules/ecr
+        run: |
+          ECR_URI=$(terraform output -raw repository_uri)
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
+          echo "ECR Repository URI: $ECR_URI"
+
+    outputs:
+      ecr_uri: ${{ steps.ecr-uri.outputs.ecr_uri }}
