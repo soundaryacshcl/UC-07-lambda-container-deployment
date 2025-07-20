@@ -8,7 +8,7 @@ Terraform will perform the following actions:
   # module.lambda.aws_lambda_function.main will be updated in-place
   ~ resource "aws_lambda_function" "main" {
         id                             = "hello-world-lambda-dev"
-      ~ image_uri                      = "199570228070.dkr.ecr.ap-south-1.amazonaws.com/hello-world-lambda-dev:v1.12.0-20250609-124748-5a06f83" -> "199570228070.dkr.ecr.ap-south-1.amazonaws.com/hello-world-lambda-dev:v1.12.0-20250609-125427-3ca3d67"
+      ~ image_uri                      = "199570228070.dkr.ecr.us-east-1.amazonaws.com/hello-world-lambda-dev:v1.12.0-20250609-124748-5a06f83" -> "199570228070.dkr.ecr.us-east-1.amazonaws.com/hello-world-lambda-dev:v1.12.0-20250609-125427-3ca3d67"
       ~ last_modified                  = "2025-06-09T12:49:27.000+0000" -> (known after apply)
         tags                           = {
             "Environment" = "dev"

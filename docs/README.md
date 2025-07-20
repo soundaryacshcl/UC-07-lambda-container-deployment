@@ -21,7 +21,7 @@ graph TB
     H --> F
     F --> I
     
-    subgraph "AWS Infrastructure (ap-south-1)"
+    subgraph "AWS Infrastructure (us-east-1)"
         F
         G
         H

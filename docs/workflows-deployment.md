@@ -7,7 +7,7 @@ Before starting, ensure you have:
 1. **AWS Account** with OIDC role configured
 2. **GitHub Repository Variables** set:
    - `AWS_ROLE_ARN`: Your OIDC role ARN
-3. **S3 Bucket** exists: `usecases-terraform-state-bucket` in `ap-south-1`
+3. **S3 Bucket** exists: `usecases-terraform-state-bucket` in `us-east-1`
 
 ##  Deployment Sequence
 
@@ -172,8 +172,8 @@ gh run view --log
 
 ### **Test Deployed Application**
 After successful deployment, you'll get:
-- **API Gateway URL**: `https://xxx.execute-api.ap-south-1.amazonaws.com/dev`
-- **Lambda Function URL**: `https://xxx.lambda-url.ap-south-1.on.aws/`
+- **API Gateway URL**: `https://xxx.execute-api.us-east-1.amazonaws.com/dev`
+- **Lambda Function URL**: `https://xxx.lambda-url.us-east-1.on.aws/`
 
 ---
 
@@ -198,7 +198,7 @@ gh workflow run deploy-ecr.yml -f environment=dev -f action=apply
 ### **Image Not Found**
 ```bash
 # Check if image was pushed successfully
-aws ecr list-images --repository-name hello-world-lambda-dev --region ap-south-1
+aws ecr list-images --repository-name hello-world-lambda-dev --region us-east-1
 ```
 
 ### **Terraform State Issues**

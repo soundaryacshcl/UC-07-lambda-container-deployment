@@ -16,7 +16,7 @@ This guide walks you through setting up the AWS Lambda container DevOps solution
 
 ### 3. S3 Bucket for Terraform State
 - S3 bucket: `usecases-terraform-state-bucket`
-- Bucket should exist in `ap-south-1` region
+- Bucket should exist in `us-east-1` region
 - Versioning enabled for state file protection
 
 ## GitHub OIDC Configuration
@@ -114,7 +114,7 @@ aws iam put-role-policy \
 
 ```bash
 # Create S3 bucket for Terraform state (if not exists)
-aws s3 mb s3://usecases-terraform-state-bucket --region ap-south-1
+aws s3 mb s3://usecases-terraform-state-bucket --region us-east-1
 
 # Enable versioning
 aws s3api put-bucket-versioning \
@@ -235,7 +235,7 @@ aws lambda get-function --function-name hello-world-lambda-dev
 aws logs tail /aws/lambda/hello-world-lambda-dev --follow
 
 # Test API endpoint
-curl -X GET https://YOUR_API_ID.execute-api.ap-south-1.amazonaws.com/dev/
+curl -X GET https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/dev/
 
 # Check ECR images
 aws ecr list-images --repository-name hello-world-lambda-dev
