@@ -146,6 +146,10 @@ resource "aws_api_gateway_deployment" "main" {
 
 # API Gateway Stage
 resource "aws_api_gateway_stage" "main" {
+  depends_on = [
+    aws_api_gateway_deployment.main,
+    aws_api_gateway_account.logging
+  ]
   deployment_id = aws_api_gateway_deployment.main.id
   rest_api_id   = aws_api_gateway_rest_api.main.id
   stage_name    = var.stage_name
@@ -344,4 +348,35 @@ resource "aws_api_gateway_usage_plan_key" "main" {
   key_id        = aws_api_gateway_api_key.main[0].id
   key_type      = "API_KEY"
   usage_plan_id = aws_api_gateway_usage_plan.main[0].id
+}
+
+
+# Extra added 
+
+resource "aws_iam_role" "apigw_cloudwatch" {
+  name = "${var.project_name}-${var.environment}-apigw-cw-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "apigateway.amazonaws.com" }
+    }]
+  })
+
+  tags = {
+    Name        = "${var.project_name}-${var.environment}-apigw-cw-role"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "apigw_cloudwatch_attach" {
+  role       = aws_iam_role.apigw_cloudwatch.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+resource "aws_api_gateway_account" "logging" {
+  cloudwatch_role_arn = aws_iam_role.apigw_cloudwatch.arn
 }
