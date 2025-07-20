@@ -11,7 +11,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "terraform-hcl-usecases"
+    bucket       = "terraform-usecases-hcl-us-east"
     key          = "usecase7/dev/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
